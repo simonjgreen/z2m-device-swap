@@ -45,9 +45,11 @@ class Bridge:
         elif operation == 'device/rename':
             self.devices[payload['from']]['friendly_name'] = payload['to']
         elif operation == 'group/members/add':
+            if payload['device'] not in self.devices:
+                raise ValueError(f"Device '{payload['device']}' does not exist")
             for group in self.groups:
                 if group['id'] == payload['group']:
-                    group['members'].append({'ieee_address': payload['device'].split('/')[0], 'endpoint': 1})
+                    group['members'].append({'ieee_address': payload['device'], 'endpoint': payload['endpoint']})
         return {}
 
     def validate_entities(self, session):
@@ -100,6 +102,16 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.flow.snapshot()['stage'], 'complete')
         rename = next(p for op, p in self.bridge.calls if op == 'device/rename')
         self.assertIs(rename['homeassistant_rename'], True)
+
+    async def test_group_uses_separate_endpoint_and_preserves_endpoint_11(self):
+        for device in self.bridge.devices.values():
+            device['endpoints'] = {'11': {}}
+        self.bridge.groups[0]['members'][0]['endpoint'] = 11
+        await self.ready()
+        await self.flow.apply(True)
+        payload = next(p for op, p in self.bridge.calls if op == 'group/members/add')
+        self.assertEqual(payload, {'group': 7, 'device': 'new', 'endpoint': 11})
+        self.assertIn({'ieee_address': 'new', 'endpoint': 11}, self.bridge.groups[0]['members'])
 
     async def test_intent_saved_before_removal(self):
         await self.ready()

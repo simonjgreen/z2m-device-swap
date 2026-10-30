@@ -83,7 +83,7 @@ class Bridge(Registry):
         if operation == 'device/rename':
             return self.devices.get(payload['from'], {}).get('friendly_name') == payload['to']
         if operation == 'group/members/add':
-            ieee, endpoint = payload['device'].rsplit('/', 1)
+            ieee, endpoint = payload['device'], str(payload['endpoint'])
             return any(g['id'] == payload['group'] and any(m['ieee_address'] == ieee and str(m['endpoint']) == endpoint
                        for m in g.get('members', [])) for g in self.groups)
         return True

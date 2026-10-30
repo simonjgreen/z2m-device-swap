@@ -141,7 +141,7 @@ class Workflow:
                     if not any(m['ieee_address'] == new['ieee_address'] and m['endpoint'] == endpoint
                                for m in group.get('members', [])):
                         await self._operation(f"group:{membership['id']}", 'group/members/add', {
-                            'group': membership['id'], 'device': f"{new['ieee_address']}/{endpoint}"})
+                            'group': membership['id'], 'device': new['ieee_address'], 'endpoint': endpoint})
                 if old['ieee_address'] in self.adapter.devices or self.adapter.devices[new['ieee_address']]['friendly_name'] != name:
                     raise ValueError('Bridge inventory does not confirm removal and rename')
                 for membership in self.session['groups']:

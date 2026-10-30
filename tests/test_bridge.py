@@ -113,3 +113,22 @@ class LegacyEntityTests(unittest.TestCase):
     def test_disabled_main_light_is_still_required(self):
         with self.assertRaisesRegex(ValueError,'Missing'):
             module('mapping').entity_mapping([{'entity_id':'light.kitchen','domain':'light','unique_id':'old_light_zigbee2mqtt','disabled_by':'user'}],[],'old','new')
+
+
+class GroupInventoryTests(unittest.TestCase):
+    def test_group_effect_checks_separate_endpoint_and_exact_device(self):
+        # Exercise the production inventory predicate without importing the HA runtime.
+        import ast
+        from types import SimpleNamespace
+        path = Path(__file__).parents[1] / 'custom_components/z2m_device_swap/bridge.py'
+        tree = ast.parse(path.read_text())
+        bridge = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == 'Bridge')
+        method = next(n for n in bridge.body if isinstance(n, ast.FunctionDef) and n.name == '_effect_seen')
+        namespace = {}
+        exec(compile(ast.Module(body=[method], type_ignores=[]), str(path), 'exec'), namespace)
+        state = SimpleNamespace(groups=[{'id': 2, 'members': [{'ieee_address': 'new', 'endpoint': 11}]}])
+        seen = namespace['_effect_seen']
+        self.assertTrue(seen(state, 'group/members/add', {'group': 2, 'device': 'new', 'endpoint': 11}))
+        self.assertFalse(seen(state, 'group/members/add', {'group': 2, 'device': 'new', 'endpoint': 1}))
+        self.assertFalse(seen(state, 'group/members/add', {'group': 2, 'device': 'other', 'endpoint': 11}))
+        self.assertFalse(seen(state, 'group/members/add', {'group': 3, 'device': 'new', 'endpoint': 11}))
