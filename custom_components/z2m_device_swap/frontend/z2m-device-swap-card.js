@@ -5,6 +5,7 @@ class DeviceSwapCard extends HTMLElement {
   constructor() {
     super(); this.attachShadow({mode:'open'}); this._config = {}; this._data = null;
     this._busy = false; this._error = ''; this._selectedOld = ''; this._selectedNew = '';
+    this._pairingSession = null; this._knownDevices = new Set(); this._detectedNew = ''; this._replacementChosen = false;
     this._confirm = false; this._query = ''; this._last = ''; this._notice = '';
   }
   setConfig(config) { this._config = config; this.refresh(); }
@@ -18,7 +19,7 @@ class DeviceSwapCard extends HTMLElement {
     try {
       const data = await this._hass.callWS({type:'z2m_device_swap/status', entry_id:this._config.entry_id});
       const serialized = JSON.stringify(data);
-      if (serialized !== this._last) { this._data = data; this._last = serialized; this.render(); }
+      if (serialized !== this._last) { this.acceptData(data); this._last = serialized; this.render(); }
     } catch (error) { this._error = error.message || String(error); this.render(); }
     finally { this._loading = false; }
   }
@@ -26,11 +27,39 @@ class DeviceSwapCard extends HTMLElement {
     if (this._busy) return;
     this._busy = true; this._error = ''; this._notice = ''; this.render();
     try {
-      this._data = await this._hass.callWS({type:'z2m_device_swap/action', entry_id:this._config.entry_id,
+      const data = await this._hass.callWS({type:'z2m_device_swap/action', entry_id:this._config.entry_id,
         action, session_id:this._data?.session?.id, ...extra});
+      this.acceptData(data);
       this._confirm = false;
     } catch (error) { this._error = error.message || String(error); }
     finally { this._busy = false; this._last = ''; this.render(); await this.refresh(); }
+  }
+  acceptData(data) {
+    const session = data.session;
+    if (session?.stage === 'select') {
+      if (this._pairingSession !== session.id) {
+        this._pairingSession = session.id;
+        this._knownDevices = new Set(session.known_devices || (this._data?.devices || data.devices).map(d => d.ieee_address));
+        this._selectedNew = ''; this._detectedNew = ''; this._replacementChosen = false;
+      }
+      if (!data.devices.some(d => d.ieee_address === this._selectedNew)) {
+        this._selectedNew = ''; this._detectedNew = '';
+      }
+      const arrivals = data.devices.filter(d => d.ieee_address !== session.old.ieee_address && !this._knownDevices.has(d.ieee_address));
+      this._multipleNew = arrivals.length > 1;
+      if (!this._selectedNew && !this._replacementChosen && arrivals.length === 1) {
+        this._selectedNew = arrivals[0].ieee_address;
+        this._detectedNew = this._selectedNew;
+      }
+    }
+    this._data = data;
+  }
+  bulbDescription(device) {
+    const definition = device.definition || {};
+    const make = definition.vendor || device.manufacturer || 'Unknown make';
+    const model = device.model || definition.model || device.model_id || 'Unknown model';
+    const description = device.description || definition.description;
+    return `<span>Make: ${esc(make)} · Model: ${esc(model)}</span>${description ? `<br>${esc(description)}` : ''}`;
   }
   async identify(ieee) {
     if (this._busy) return;
@@ -53,7 +82,7 @@ class DeviceSwapCard extends HTMLElement {
   }
   selectedDetails(device) {
     if (!device) return '';
-    return `<p class="muted">${esc(device.model)}<br><code>${esc(device.ieee_address)}</code></p>
+    return `<p class="muted">${this.bulbDescription(device)}<br><code>${esc(device.ieee_address)}</code></p>
       <ul>${device.entities.filter(e => e.domain === 'light').map(e => `<li><code>${esc(e.entity_id)}</code></li>`).join('')}</ul>`;
   }
   updateSearchResults() {
@@ -104,18 +133,19 @@ class DeviceSwapCard extends HTMLElement {
         <div id="old-details">${this.selectedDetails(old)}</div><div class="actions"><button data-action="flash-old" ${!old || disabled ? 'disabled':''}>Identify selected bulb</button>
         <button class="primary" data-action="begin" ${!old || disabled ? 'disabled':''}>Save and continue</button></div>`;
     } else if (stage === 'select') {
-      content = `<p class="eyebrow">Replacing ${esc(s.old.friendly_name)}</p><h2>Install and pair the new bulb</h2>
+      content = `<p class="eyebrow">Replacing ${esc(s.old.friendly_name)}</p><h2>Install and pair the new bulb</h2><p class="muted">${this.bulbDescription(s.old)}</p>
         <p>Switch off the light circuit, replace the faulty bulb, then restore power. Reset the new bulb for pairing if needed.</p>
         <button data-action="pair" ${disabled || d.permit_join ? 'disabled':''}>${d.permit_join ? 'Pairing is open' : 'Open pairing for 2 minutes'}</button>
-        <p class="muted">Wait for the new bulb to finish interviewing. Select it below; another device joining won’t select it for you.</p>
+        <p class="muted">Wait for the new bulb to finish interviewing. A newly detected bulb will be selected below when there is a single candidate. Check its make and model, then use Identify replacement to confirm the physical bulb.</p>
+        ${this._detectedNew === this._selectedNew && replacement ? `<p id="detected" class="success" role="status">Detected a new bulb: ${esc(replacement.friendly_name)}. This is likely your replacement. Use Identify replacement to flash it and confirm before continuing.</p>` : this._multipleNew && !this._selectedNew ? '<p role="status">Multiple new bulbs detected. Choose the correct replacement and use Identify replacement to confirm it.</p>' : ''}
         <label for="replacement">Replacement bulb</label><select id="replacement">${this.options(devices.filter(item=>item.ieee_address !== s.old.ieee_address),this._selectedNew)}</select>
         ${this.selectedDetails(replacement)}<div class="actions"><button data-action="flash-new" ${!replacement || disabled ? 'disabled':''}>Identify replacement</button>
         <button class="primary" data-action="select" ${!replacement || disabled ? 'disabled':''}>Review replacement</button></div>
         <button class="text" data-action="cancel" ${disabled ? 'disabled':''}>Cancel</button>`;
     } else {
       content = `<p class="eyebrow">${stage === 'verify' ? 'Final check' : stage === 'attention' ? 'Needs attention' : 'Review replacement'}</p>
-        <h2>${esc(s.old.friendly_name)}</h2><dl><dt>Remove faulty bulb</dt><dd><code>${esc(s.old.ieee_address)}</code></dd>
-        <dt>Use replacement</dt><dd>${esc(s.replacement?.friendly_name)}<br><code>${esc(s.replacement?.ieee_address)}</code></dd>
+        <h2>${esc(s.old.friendly_name)}</h2><dl><dt>Remove faulty bulb</dt><dd>${this.bulbDescription(s.old)}<br><code>${esc(s.old.ieee_address)}</code></dd>
+        <dt>Use replacement</dt><dd>${esc(s.replacement?.friendly_name)}<br>${s.replacement ? this.bulbDescription(s.replacement) : ''}<br><code>${esc(s.replacement?.ieee_address)}</code></dd>
         <dt>Restore groups</dt><dd>${groupNames.join(', ') || 'No groups'}</dd><dt>Keep exact HA entity IDs</dt><dd><ul class="entities">${preserved.map(e=>`<li><code>${esc(e.entity_id)}</code></li>`).join('')}</ul></dd></dl>
         ${skipped.length ? `<p class="muted">These disabled entities on the old bulb are not exposed by the replacement and will not be carried over:</p><ul>${skipped.map(e=>`<li><code>${esc(e.entity_id)}</code></li>`).join('')}</ul>` : ''}
         ${s.error ? `<p class="error" role="alert">${esc(s.error)}</p>`:''}
@@ -155,7 +185,7 @@ class DeviceSwapCard extends HTMLElement {
       this.updateSearchResults();
     });
     this.shadowRoot.querySelector('#old')?.addEventListener('change', event=> {this._selectedOld=event.target.value;this.render();});
-    this.shadowRoot.querySelector('#replacement')?.addEventListener('change',event=>{this._selectedNew=event.target.value;this.render();});
+    this.shadowRoot.querySelector('#replacement')?.addEventListener('change',event=>{this._selectedNew=event.target.value;this._detectedNew='';this._replacementChosen=true;this.render();});
     this.shadowRoot.querySelector('#confirm')?.addEventListener('change',event=>{this._confirm=event.target.checked;this.render();});
     this.shadowRoot.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>{
       const action=button.dataset.action;

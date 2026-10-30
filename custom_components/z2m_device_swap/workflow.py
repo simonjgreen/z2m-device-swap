@@ -67,7 +67,8 @@ class Workflow:
                 raise ValueError('Multiple group endpoints require manual replacement')
             session = {'version': 1, 'id': uuid4().hex, 'old': device,
                             'entities': deepcopy(entities), 'groups': memberships,
-                            'replacement': None, 'skipped_entities': [], 'stage': 'select', 'pending': None,
+                            'replacement': None, 'known_devices': sorted(self.adapter.devices),
+                            'skipped_entities': [], 'stage': 'select', 'pending': None,
                             'physical_test_confirmed': False, 'error': None}
             await self._persist(**session)
 

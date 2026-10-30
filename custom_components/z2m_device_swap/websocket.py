@@ -19,7 +19,9 @@ def status(runtime):
         entities = bridge.entities(device['ieee_address'])
         states = [bridge.hass.states.get(e['entity_id']) for e in entities if e['domain'] == 'light']
         bulbs.append({'ieee_address': device['ieee_address'], 'friendly_name': device['friendly_name'],
-                      'model': (device.get('definition') or {}).get('model'),
+                      'manufacturer': (device.get('definition') or {}).get('vendor') or device.get('manufacturer'),
+                      'model': (device.get('definition') or {}).get('model') or device.get('model_id'),
+                      'description': (device.get('definition') or {}).get('description'),
                       'interview_completed': device.get('interview_completed'),
                       'entities': entities, 'state': next((s.state for s in states if s), 'unknown')})
     return {**inventory, 'devices': bulbs, 'session': runtime['workflow'].snapshot(),

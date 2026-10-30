@@ -16,11 +16,27 @@ No cloud service or separate API key is used. The installed integration reuses H
 
 ## Install
 
-Manual: copy `custom_components/z2m_device_swap` to your HA configuration directory's `custom_components/` folder and restart Home Assistant. Add **Zigbee2MQTT Device Swap** under Settings → Devices & services → Add integration. Enter the MQTT base topic (normally `zigbee2mqtt`).
+### Install through HACS
 
-The integration loads its bundled Lovelace card. Add the card to a normal HA dashboard so HA supplies its navigation, layout and edit controls. The integration does not create a custom sidebar panel.
+[HACS](https://www.hacs.xyz/docs/use/) must already be installed in Home Assistant. This integration is available as a **custom repository**.
 
-HACS: add `https://github.com/simonjgreen/z2m-device-swap` under HACS → Custom repositories, category **Integration**, and install. Tests and official HACS/hassfest validation run on GitHub.
+1. Open **HACS**, select the three-dot menu, then **Custom repositories**.
+2. Enter `https://github.com/simonjgreen/z2m-device-swap` and select **Integration** as the repository type, then **Add**.
+3. Find **Zigbee2MQTT Device Swap** in HACS, open it, and select **Download**. If no tagged release is offered, select the default `main` branch.
+4. Restart Home Assistant to load the integration.
+5. Go to **Settings → Devices & services → Add integration**, search for **Zigbee2MQTT Device Swap**, and select it.
+6. Enter your Zigbee2MQTT MQTT base topic, normally `zigbee2mqtt`. HA must already have its MQTT integration connected to that broker.
+7. Add the bundled card to a dashboard using the configuration below.
+
+For updates, download the update through HACS, restart Home Assistant, and reload the dashboard page. If the integration is missing from **Add integration** after restarting, hard-refresh the browser.
+
+### Manual installation
+
+Copy `custom_components/z2m_device_swap` to your HA configuration directory's `custom_components/` folder and restart Home Assistant. Add **Zigbee2MQTT Device Swap** under **Settings → Devices & services → Add integration**, then enter the MQTT base topic.
+
+### Add the dashboard card
+
+The integration loads its bundled Lovelace card. Add it to a normal HA dashboard so HA supplies navigation, layout and edit controls.
 
 For a dashboard card, open a dashboard, choose Edit → Add card → Manual, and use:
 
@@ -29,7 +45,7 @@ type: custom:z2m-device-swap-card
 entry_id: YOUR_DEVICE_SWAP_CONFIG_ENTRY_ID
 ```
 
-The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.3` as a JavaScript module resource.
+The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.5` as a JavaScript module resource.
 
 For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-url http://YOUR_HA:8123 --dashboard` creates one containing the card. It uses HA's supported Lovelace APIs, leaves existing dashboards untouched, and preserves an existing Device Swap dashboard's edits.
 
@@ -39,7 +55,7 @@ For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-
 flowchart TD
     A[Choose and identify the faulty bulb] --> B[Save entity IDs and group snapshot]
     B --> C[Switch off circuit, replace bulb, restore power]
-    C --> D[Open pairing and select the new bulb]
+    C --> D[Open pairing and check the suggested new bulb]
     D --> E[Wait for interview and HA discovery]
     E --> F[Review entity IDs and groups; confirm old bulb is disconnected]
     F --> G[Remove old device and rename replacement]
@@ -56,9 +72,9 @@ Validation blocks removal if required entities or group endpoints do not match. 
 
 ## Replace one bulb
 
-1. Choose the faulty bulb by its existing name. **Identify selected bulb** uses the bulb’s native Identify button (or an explicitly supported blink effect). A request confirmation appears after it is sent. Dead or unpowered bulbs cannot blink; identify working neighbors to locate them. HA may still show a cached on/off state for an unavailable bulb.
+1. Choose the faulty bulb by its existing name. Its make, model and description appear below the selector so you can check what replacement you need. **Identify selected bulb** uses the bulb’s native Identify button (or an explicitly supported blink effect). A request confirmation appears after it is sent. Dead or unpowered bulbs cannot blink; identify working neighbors to locate them. HA may still show a cached on/off state for an unavailable bulb.
 2. Save the snapshot. Switch off the circuit, change the hardware, and restore power.
-3. Open the two-minute pairing window and reset the new bulb if needed. Select the replacement explicitly and wait for its interview and HA discovery to finish.
+3. Open the two-minute pairing window and reset the new bulb if needed. A single bulb first seen after the snapshot is preselected, with a notice that it is likely your replacement. Check its make and model and use **Identify replacement** to flash it before continuing. You can choose a different bulb; later arrivals do not override your choice. If several new bulbs appear together, select the correct one yourself. Wait for its interview and HA discovery to finish.
 4. Review both device addresses, the exact HA entity IDs, and old group memberships. Confirm that the old bulb is disconnected.
 5. Apply. The integration force-removes the old device, renames the replacement with `homeassistant_rename: true`, restores group membership, and restores any exact entity IDs (including custom names or suffixes).
 6. Test the new bulb and the room's normal controls/automations, then finish the replacement. Start the next bulb only after this check.

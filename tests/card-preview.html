@@ -3,11 +3,11 @@
 <z2m-device-swap-card></z2m-device-swap-card>
 <script type="module">
 import '../custom_components/z2m_device_swap/frontend/z2m-device-swap-card.js';
-const bulb=(id,name)=>({ieee_address:id,friendly_name:name,model:'Hue GU10',state:'unavailable',interview_completed:true,entities:[{entity_id:id==='old'?'light.kitchen_1_2':'light.replacement',domain:'light',unique_id:id+'_light_zigbee2mqtt'},{entity_id:'button.'+id+'_identify',domain:'button',unique_id:id+'_identify_zigbee2mqtt',disabled_by:null}]});
+const bulb=(id,name)=>({ieee_address:id,friendly_name:name,manufacturer:'Philips',model:id==='old'?'929001953101':'929003666501',description:'Hue White and color ambiance GU10',state:'unavailable',interview_completed:true,entities:[{entity_id:id==='old'?'light.kitchen_1_2':'light.replacement',domain:'light',unique_id:id+'_light_zigbee2mqtt'},{entity_id:'button.'+id+'_identify',domain:'button',unique_id:id+'_identify_zigbee2mqtt',disabled_by:null}]});
 const data={online:true,inventory_ready:true,busy:false,permit_join:false,devices:[bulb('old','Kitchen 1'),bulb('new','New Hue GU10')],groups:[],session:null};
 window.calls=[];window.serviceCalls=[];window.previewData=data;
 const hass={async callService(domain,service,data){window.serviceCalls.push({domain,service,data});},async callWS(msg){window.calls.push(msg);if(msg.type.endsWith('/action')){
-if(msg.action==='begin')data.session={id:'test-session',stage:'select',old:data.devices[0],entities:data.devices[0].entities,groups:[{id:2,name:'Kitchen Lights',endpoint:11}],replacement:null};
+if(msg.action==='begin')data.session={id:'test-session',stage:'select',old:data.devices[0],entities:data.devices[0].entities,groups:[{id:2,name:'Kitchen Lights',endpoint:11}],replacement:null,known_devices:data.devices.map(d=>d.ieee_address)};
 if(msg.action==='select'){data.session.replacement=data.devices[1];data.session.stage='review';data.session.entities.push({entity_id:'sensor.legacy',domain:'sensor',unique_id:'old_legacy_zigbee2mqtt',disabled_by:'integration'});data.session.skipped_entities=[{entity_id:'sensor.legacy',reason:'Disabled on old bulb'}];}
 if(msg.action==='apply'){if(!msg.confirmed)throw Error('Confirmation required');data.session.stage='verify';}
 if(msg.action==='finish')data.session.stage='complete';

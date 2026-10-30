@@ -65,6 +65,8 @@ with connect(page['webSocketDebuggerUrl'], max_size=16*1024*1024) as ws:
     assert evaluate('card.shadowRoot.activeElement === originalSearch'), 'Inventory refresh lost search focus'
     assert evaluate("card.shadowRoot.querySelectorAll('#old option').length") == 2
     choose('#old','old')
+    assert 'Philips' in evaluate("card.shadowRoot.querySelector('#old-details').textContent"), 'Selected bulb must show make'
+    assert '929001953101' in evaluate("card.shadowRoot.querySelector('#old-details').textContent"), 'Selected bulb must show model'
     click('flash-old')
     assert evaluate('serviceCalls') == [{'domain':'button','service':'press','data':{'entity_id':'button.old_identify'}}], 'Identify must use the selected bulb native button'
     assert evaluate("calls.filter(c=>c.action==='flash').length") == 0, 'Identify must not use generic HA flash'
@@ -93,4 +95,28 @@ with connect(page['webSocketDebuggerUrl'], max_size=16*1024*1024) as ws:
     choose('#old','old');click('begin');choose('#replacement','new');click('select')
     assert evaluate('document.documentElement.scrollWidth <= window.innerWidth')
     screenshot('z2m-swap-mobile-dark.png')
-print('Card browser checks passed: explicit selection, reviewed IDs, confirmation gates, physical check, mobile layout.')
+    # New MQTT inventory should suggest a replacement without performing Review or Apply.
+    call('Emulation.setDeviceMetricsOverride',{'width':900,'height':1000,'deviceScaleFactor':1,'mobile':False})
+    navigate('http://127.0.0.1:8765/tests/card-preview.html')
+    choose('#old','old');click('begin')
+    evaluate("previewData.devices.push({...previewData.devices[1],ieee_address:'joined',friendly_name:'New arrival'});card.refresh()")
+    settle()
+    assert evaluate("card.shadowRoot.querySelector('#replacement').value") == 'joined', 'A single new bulb must be preselected'
+    assert 'likely' in evaluate('card.shadowRoot.textContent').lower()
+    assert 'identify' in evaluate("card.shadowRoot.querySelector('#detected').textContent").lower()
+    assert not evaluate("calls.some(c=>['select','apply'].includes(c.action))"), 'Detection must not advance review or apply'
+    evaluate("card._pairingSession=null;card._selectedNew='';card._last='';card.refresh()")
+    settle()
+    assert evaluate("card.shadowRoot.querySelector('#replacement').value") == 'joined', 'Saved pairing baseline must survive a card reload'
+    choose('#replacement','new')
+    evaluate("previewData.devices.push({...previewData.devices[1],ieee_address:'later',friendly_name:'Another arrival'});card.refresh()")
+    settle()
+    assert evaluate("card.shadowRoot.querySelector('#replacement').value") == 'new', 'New arrivals must not override a manual choice'
+    assert evaluate("card.shadowRoot.querySelector('#detected')") is None
+    navigate('http://127.0.0.1:8765/tests/card-preview.html')
+    choose('#old','old');click('begin')
+    evaluate("previewData.devices.push(...['a','b'].map(id=>({...previewData.devices[1],ieee_address:id,friendly_name:id})));card.refresh()")
+    settle()
+    assert evaluate("card.shadowRoot.querySelector('#replacement').value") == '', 'Simultaneous arrivals need an explicit choice'
+    assert 'multiple' in evaluate('card.shadowRoot.textContent').lower()
+print('Card browser checks passed: make/model, new bulb suggestions, manual choice, ambiguity, reviewed IDs, confirmation gates, mobile layout.')

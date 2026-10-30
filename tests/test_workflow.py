@@ -83,6 +83,13 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(snapshot['entities'][0]['entity_id'], 'light.custom_kitchen_1')
         self.assertEqual(snapshot['groups'][0]['id'], 7)
 
+    async def test_snapshot_records_existing_devices_before_pairing(self):
+        await self.flow.begin('old')
+        self.bridge.devices['joined'] = bulb('joined', 'Newly joined')
+        self.assertEqual(set(self.flow.snapshot()['known_devices']), {'old', 'new'})
+        restored = load_workflow()(self.bridge, self.save, self.saved[-1])
+        self.assertEqual(set(restored.snapshot()['known_devices']), {'old', 'new'})
+
     async def test_apply_requires_explicit_confirmation(self):
         await self.ready()
         with self.assertRaises(ValueError):
