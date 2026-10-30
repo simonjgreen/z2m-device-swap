@@ -51,33 +51,44 @@ For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-
 
 ## Replacement flow
 
+**Six human stages, guided from one Home Assistant dashboard card.** Choose the faulty bulb, save its snapshot, fit and pair the replacement, review and approve it, test your controls, then finish. These are stages, not six clicks; fitting the bulb and testing it still happen in the room.
+
+The routine admin work is quick: the card suggests a newly joined bulb and shows its make, model, entity IDs and groups for review. After you approve, it removes the old device, renames the replacement, restores group membership and preserves the exact HA entity IDs automatically. Doing the same procedure manually means working through device removal, renaming and group membership in Zigbee2MQTT, then checking and correcting entity IDs in Home Assistant. Here, those tasks stay in one guided flow. Fitting, pairing and physical checks still determine the total time.
+
+**Diagram key:** rounded blue boxes are human actions; square purple boxes are automatic system actions. The six numbered human stages are the normal path. Recovery adds an inspection and resume step only if something goes wrong.
+
 ```mermaid
 flowchart TD
-    A[Choose and identify the faulty bulb] --> B[Save entity IDs and group snapshot]
-    B --> C[Switch off circuit, replace bulb, restore power]
-    C --> D[Open pairing and check the suggested new bulb]
-    D --> E[Wait for interview and HA discovery]
-    E --> F[Review entity IDs and groups; confirm old bulb is disconnected]
-    F --> G[Remove old device and rename replacement]
-    G --> H[Restore groups and exact HA entity IDs]
-    H --> I[Test bulb and normal room controls]
-    I --> J[Confirm and finish]
-    G -. Request fails or is interrupted .-> K[Needs attention: inspect saved state]
-    H -. Request fails or is interrupted .-> K
-    K --> L[Resume: check inventory and skip completed steps]
-    L --> G
+    H1("1. Choose and identify the faulty bulb") --> H2("2. Click Save and continue")
+    H2 --> S1[Save entity IDs, groups and existing device inventory]
+    S1 --> H3("3. Fit the new bulb, open pairing and reset it if needed")
+    H3 --> S2[Detect the new bulb and suggest its selection]
+    S2 --> H4("4. Check make/model, flash, review and approve replacement")
+    H4 --> S3[Validate, remove old device and rename replacement]
+    S3 --> S4[Restore groups and exact HA entity IDs]
+    S4 --> H5("5. Test the bulb and normal room controls")
+    H5 --> H6("6. Confirm the test and finish")
+    S3 -. Failure or interruption .-> HR("Inspect the error and choose Resume")
+    S4 -. Failure or interruption .-> HR
+    HR --> SR[Check current inventory and skip completed operations]
+    SR --> S3
+
+    classDef human fill:#dbeafe,stroke:#1d4ed8,color:#172554,stroke-width:2px
+    classDef system fill:#f3e8ff,stroke:#7e22ce,color:#3b0764,stroke-width:2px
+    class H1,H2,H3,H4,H5,H6,HR human
+    class S1,S2,S3,S4,SR system
 ```
 
-Validation blocks removal if required entities or group endpoints do not match. A saved snapshot lets an interrupted replacement resume after checking the current bridge state.
+Validation blocks removal if required entities or group endpoints do not match. A saved snapshot lets an interrupted replacement resume after checking the current bridge state. If several new bulbs arrive together, you choose the replacement yourself.
 
 ## Replace one bulb
 
-1. Choose the faulty bulb by its existing name. Its make, model and description appear below the selector so you can check what replacement you need. **Identify selected bulb** uses the bulb’s native Identify button (or an explicitly supported blink effect). A request confirmation appears after it is sent. Dead or unpowered bulbs cannot blink; identify working neighbors to locate them. HA may still show a cached on/off state for an unavailable bulb.
-2. Save the snapshot. Switch off the circuit, change the hardware, and restore power.
-3. Open the two-minute pairing window and reset the new bulb if needed. A single bulb first seen after the snapshot is preselected, with a notice that it is likely your replacement. Check its make and model and use **Identify replacement** to flash it before continuing. You can choose a different bulb; later arrivals do not override your choice. If several new bulbs appear together, select the correct one yourself. Wait for its interview and HA discovery to finish.
-4. Review both device addresses, the exact HA entity IDs, and old group memberships. Confirm that the old bulb is disconnected.
-5. Apply. The integration force-removes the old device, renames the replacement with `homeassistant_rename: true`, restores group membership, and restores any exact entity IDs (including custom names or suffixes).
-6. Test the new bulb and the room's normal controls/automations, then finish the replacement. Start the next bulb only after this check.
+1. **Choose and identify the faulty bulb.** Its make, model and description appear below the selector so you can check what replacement you need. **Identify selected bulb** uses its native Identify button or a supported blink effect. Dead or unpowered bulbs cannot blink; identify working neighbors to locate them. HA may still show a cached on/off state for an unavailable bulb.
+2. **Click Save and continue.** The integration saves the old bulb's exact HA entity IDs, group memberships and existing device inventory before any replacement changes.
+3. **Fit and pair the new bulb.** Switch off the light circuit, change the hardware, then restore power. Open the two-minute pairing window and reset the new bulb if needed. Wait for its interview and HA discovery to finish.
+4. **Check, review and approve.** A single bulb first seen after the snapshot is preselected with a notice that it is likely your replacement. Check its make and model and use **Identify replacement** to flash it. You can choose a different bulb; later arrivals do not override your choice. If several new bulbs appear together, choose the correct one yourself. Select **Review replacement**, check both addresses, the exact HA entity IDs and groups, confirm the old bulb is disconnected, then select **Replace this bulb**. The integration removes the old device, renames the replacement and restores its groups and exact entity IDs automatically.
+5. **Test your controls.** Check the new bulb individually and through the room's normal controls or automations.
+6. **Confirm and finish.** Check the physical-test confirmation and select **Finish replacement**. Start the next bulb after this check.
 
 ## Screenshots
 
