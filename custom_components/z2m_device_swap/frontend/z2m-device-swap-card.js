@@ -1,4 +1,4 @@
-/* A dependency-free Home Assistant card and sidebar panel. */
+/* A dependency-free Home Assistant Lovelace card. */
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 class DeviceSwapCard extends HTMLElement {
@@ -72,7 +72,7 @@ class DeviceSwapCard extends HTMLElement {
     const groupNames = (s?.groups || []).map(g => esc(g.name));
     let content = '';
     if (!this._config.entry_id) {
-      content = '<p>Configure this card with the Device Swap integration’s <code>entry_id</code>, or open <b>Replace a bulb</b> in the sidebar after adding the integration.</p>';
+      content = '<p>Configure this card with the Device Swap integration’s <code>entry_id</code>, then add it to a Home Assistant dashboard.</p>';
     } else if (!d) {
       content = '<p role="status">Connecting to Device Swap…</p>';
     } else if (!active) {
@@ -127,9 +127,8 @@ class DeviceSwapCard extends HTMLElement {
       .check{display:flex;gap:12px;align-items:flex-start;font-weight:400;line-height:1.5;margin:20px 0}.check input{width:20px;height:20px;flex-shrink:0;accent-color:var(--primary-color,#0288d1)}
       :focus-visible{outline:3px solid var(--primary-color,#0288d1);outline-offset:2px}
       @media(max-width:480px){.body{padding:18px}header{padding:16px}dl{grid-template-columns:1fr;gap:6px}dd{margin-bottom:10px}.actions button{flex:1}}
-    </style><ha-card><header>${this._isPanel?'<button class="menu" aria-label="Open Home Assistant menu">☰</button>':''}<h1>Replace a bulb</h1><span class="badge">${d ? (d.online?'Zigbee2MQTT connected':'Offline') : ''}</span></header>
+    </style><ha-card><header><h1>Replace a bulb</h1><span class="badge">${d ? (d.online?'Zigbee2MQTT connected':'Offline') : ''}</span></header>
     <div class="body"><p id="error" role="alert" class="error" ${this._error?'':'hidden'}>${esc(this._error)}</p>${content}</div></ha-card>`;
-    this.shadowRoot.querySelector('.menu')?.addEventListener('click',()=>this.dispatchEvent(new CustomEvent('hass-toggle-menu',{bubbles:true,composed:true})));
     this.shadowRoot.querySelector('#search')?.addEventListener('input', event => {
       this._query = event.target.value;
       this.updateSearchResults();
@@ -150,8 +149,7 @@ class DeviceSwapCard extends HTMLElement {
 }
 
 class DeviceSwapPanel extends DeviceSwapCard {
-  set panel(panel) { this._isPanel = true; this.setConfig({entry_id:panel.config.entry_id}); }
-  connectedCallback() { super.connectedCallback(); this.style.cssText='box-sizing:border-box;max-width:820px;margin:24px auto;padding:0 16px'; }
+  set panel(panel) { this.setConfig({entry_id:panel.config.entry_id}); }
 }
 if(!customElements.get('z2m-device-swap-card'))customElements.define('z2m-device-swap-card',DeviceSwapCard);
 if(!customElements.get('z2m-device-swap-panel'))customElements.define('z2m-device-swap-panel',DeviceSwapPanel);

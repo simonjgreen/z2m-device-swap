@@ -1,7 +1,7 @@
 """Replace faulty Zigbee2MQTT bulbs from Home Assistant."""
 import asyncio
 from pathlib import Path
-from homeassistant.components import frontend, panel_custom
+from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.helpers.storage import Store
 from .bridge import Bridge
@@ -14,6 +14,7 @@ async def async_setup(hass, config):
     hass.data.setdefault(DOMAIN, {'entries': {}})
     await hass.http.async_register_static_paths([
         StaticPathConfig('/z2m_device_swap', str(Path(__file__).parent / 'frontend'), False)])
+    frontend.add_extra_js_url(hass, '/z2m_device_swap/z2m-device-swap-card.js?v=0.1.1')
     register(hass)
     return True
 
@@ -35,19 +36,9 @@ async def async_setup_entry(hass, entry):
     if stored and stored['stage'] == 'applying':
         await flow._persist(stage='attention', error='Home Assistant restarted during replacement. Review before resuming.')
     await bridge.start()
-    path = 'z2m-device-swap-' + entry.entry_id
     runtime = {'bridge': bridge, 'workflow': flow, 'store': store,
-               'action_lock': asyncio.Lock(), 'panel_path': path}
+               'action_lock': asyncio.Lock()}
     hass.data[DOMAIN]['entries'][entry.entry_id] = runtime
-    try:
-        await panel_custom.async_register_panel(hass, frontend_url_path=path,
-            webcomponent_name='z2m-device-swap-panel', sidebar_title='Replace a bulb',
-            sidebar_icon='mdi:lightbulb-auto', module_url='/z2m_device_swap/z2m-device-swap-card.js?v=0.1.0',
-            config={'entry_id': entry.entry_id}, require_admin=True)
-    except Exception:
-        bridge.stop()
-        hass.data[DOMAIN]['entries'].pop(entry.entry_id, None)
-        raise
     return True
 
 
@@ -57,6 +48,5 @@ async def async_unload_entry(hass, entry):
         return False
     if runtime:
         runtime['bridge'].stop()
-        frontend.async_remove_panel(hass, runtime['panel_path'])
         hass.data[DOMAIN]['entries'].pop(entry.entry_id, None)
     return True

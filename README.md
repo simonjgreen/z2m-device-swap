@@ -18,18 +18,20 @@ No cloud service or separate API key is used. The installed integration reuses H
 
 Manual: copy `custom_components/z2m_device_swap` to your HA configuration directory's `custom_components/` folder and restart Home Assistant. Add **Zigbee2MQTT Device Swap** under Settings → Devices & services → Add integration. Enter the MQTT base topic (normally `zigbee2mqtt`).
 
-A **Replace a bulb** sidebar page is added automatically. No YAML edits are needed for that page.
+The integration loads its bundled Lovelace card. Add the card to a normal HA dashboard so HA supplies its navigation, layout and edit controls. The integration does not create a custom sidebar panel.
 
-HACS: add `https://github.com/simonjgreen/z2m-device-swap` under HACS → Custom repositories, category **Integration**, and install. Repository validation runs through the official HACS and hassfest GitHub Actions. Physical replacement testing is still in progress.
+HACS: add `https://github.com/simonjgreen/z2m-device-swap` under HACS → Custom repositories, category **Integration**, and install. Tests and official HACS/hassfest validation run on GitHub.
 
-For a dashboard card, add `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.0` as a JavaScript module resource, then add a manual card:
+For a dashboard card, open a dashboard, choose Edit → Add card → Manual, and use:
 
 ```yaml
 type: custom:z2m-device-swap-card
 entry_id: YOUR_DEVICE_SWAP_CONFIG_ENTRY_ID
 ```
 
-The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The automatic sidebar page supplies it for you.
+The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.1` as a JavaScript module resource.
+
+For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-url http://YOUR_HA:8123 --dashboard` creates one containing the card. It uses HA's supported Lovelace APIs, leaves existing dashboards untouched, and preserves an existing Device Swap dashboard's edits.
 
 ## Replace one bulb
 

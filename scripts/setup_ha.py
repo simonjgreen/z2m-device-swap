@@ -13,6 +13,7 @@ def main():
     parser.add_argument('--ha-url',required=True)
     parser.add_argument('--base-topic',default='zigbee2mqtt')
     parser.add_argument('--inspect-only',action='store_true')
+    parser.add_argument('--dashboard',action='store_true',help='Create a native Lovelace dashboard containing the card')
     parser.add_argument('--status-output',type=Path)
     args=parser.parse_args()
     base=args.ha_url.rstrip('/')
@@ -74,9 +75,24 @@ def main():
         print(json.dumps({'online':status['online'],'inventory_ready':status['inventory_ready'],
                           'z2m_version':status.get('version'),'bulbs':len(status['devices']),
                           'active_swap':status.get('session') is not None}))
+        panel_path='z2m-device-swap'
+        if args.dashboard:
+            resources=query('lovelace/resources')
+            resource_url='/z2m_device_swap/z2m-device-swap-card.js?v=0.1.1'
+            if not any(r['url'].split('?')[0] == resource_url.split('?')[0] for r in resources):
+                query('lovelace/resources/create',url=resource_url,res_type='module')
+            dashboards=query('lovelace/dashboards/list')
+            existing=next((d for d in dashboards if d['url_path']==panel_path),None)
+            if existing is None:
+                query('lovelace/dashboards/create',url_path=panel_path,title='Replace a bulb',icon='mdi:lightbulb-auto',show_in_sidebar=True,require_admin=True,mode='storage')
+                config={'title':'Replace a bulb','views':[{'title':'Replace a bulb','path':'swap','type':'masonry',
+                    'cards':[{'type':'custom:z2m-device-swap-card','entry_id':entry_id}]}]}
+                query('lovelace/config/save',url_path=panel_path,config=config)
+            config=query('lovelace/config',url_path=panel_path)
+            print(json.dumps({'native_dashboard':True,'views':len(config.get('views',[])),'dashboard_url':base+'/'+panel_path}))
         panels=query('get_panels')
-        panel_path='z2m-device-swap-'+entry_id
-        print(json.dumps({'panel_registered':panel_path in panels,'panel_url':base+'/'+panel_path}))
+        panel=panels.get(panel_path,{})
+        print(json.dumps({'panel_registered':bool(panel),'component_name':panel.get('component_name'),'panel_url':base+'/'+panel_path}))
         # Static frontend bytes are safe to read; no device action endpoint is called.
         js=urllib.request.urlopen(urllib.request.Request(base+'/z2m_device_swap/z2m-device-swap-card.js',headers=headers),timeout=15).read()
         print(json.dumps({'frontend_bytes':len(js),'frontend_contains_card':b'z2m-device-swap-card' in js}))
