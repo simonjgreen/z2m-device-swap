@@ -3,6 +3,7 @@ import probatio as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import callback
 from .const import DOMAIN
+from .mapping import identify_service
 from .workflow import light_features
 
 
@@ -65,7 +66,11 @@ async def ws_action(hass, connection, msg):
                 light = next((e for e in entities if e['domain'] == 'light'), None)
                 if not light or msg.get('device') not in bridge.devices:
                     raise ValueError('Select a known Zigbee2MQTT bulb')
-                await hass.services.async_call('light', 'turn_on', {'entity_id': light['entity_id'], 'flash': 'short'}, blocking=True)
+                effects = {e['entity_id']: state.attributes.get('effect_list', [])
+                           for e in entities if e['domain'] == 'light'
+                           and (state := hass.states.get(e['entity_id'])) is not None}
+                domain, service, payload = identify_service(entities, effects)
+                await hass.services.async_call(domain, service, payload, blocking=True)
             elif action == 'pair':
                 if session['stage'] != 'select':
                     raise ValueError('Pairing is only available before selecting a replacement')

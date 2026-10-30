@@ -5,7 +5,7 @@ class DeviceSwapCard extends HTMLElement {
   constructor() {
     super(); this.attachShadow({mode:'open'}); this._config = {}; this._data = null;
     this._busy = false; this._error = ''; this._selectedOld = ''; this._selectedNew = '';
-    this._confirm = false; this._query = ''; this._last = '';
+    this._confirm = false; this._query = ''; this._last = ''; this._notice = '';
   }
   setConfig(config) { this._config = config; this.refresh(); }
   set hass(hass) { this._hass = hass; if (!this._data && !this._loading) this.refresh(); }
@@ -24,13 +24,28 @@ class DeviceSwapCard extends HTMLElement {
   }
   async action(action, extra = {}) {
     if (this._busy) return;
-    this._busy = true; this._error = ''; this.render();
+    this._busy = true; this._error = ''; this._notice = ''; this.render();
     try {
       this._data = await this._hass.callWS({type:'z2m_device_swap/action', entry_id:this._config.entry_id,
         action, session_id:this._data?.session?.id, ...extra});
       this._confirm = false;
     } catch (error) { this._error = error.message || String(error); }
     finally { this._busy = false; this._last = ''; this.render(); await this.refresh(); }
+  }
+  async identify(ieee) {
+    if (this._busy) return;
+    const device = this._data?.devices.find(item => item.ieee_address === ieee);
+    if (!device) return;
+    const button = device.entities.find(e => e.domain === 'button' && e.unique_id.includes('_identify_') && !e.disabled_by);
+    const light = device.entities.find(e => e.domain === 'light' && !e.disabled_by && this._hass.states?.[e.entity_id]?.attributes?.effect_list?.includes('blink'));
+    this._busy = true; this._error = ''; this._notice = ''; this.render();
+    try {
+      if (button) await this._hass.callService('button', 'press', {entity_id:button.entity_id});
+      else if (light) await this._hass.callService('light', 'turn_on', {entity_id:light.entity_id, effect:'blink'});
+      else throw new Error('This bulb has no enabled Identify button or supported blink effect.');
+      this._notice = `Identification requested for ${device.friendly_name}. Check the physical bulb; a dead or unpowered bulb cannot blink.`;
+    } catch (error) { this._error = error.message || String(error); }
+    finally { this._busy = false; this.render(); }
   }
   options(devices, selected) {
     return '<option value="">Choose a bulb…</option>' + devices.map(d =>
@@ -55,6 +70,8 @@ class DeviceSwapCard extends HTMLElement {
     this.shadowRoot.querySelector('.badge').textContent = d.online ? 'Zigbee2MQTT connected' : 'Offline';
     const error = this.shadowRoot.querySelector('#error');
     error.textContent = this._error; error.hidden = !this._error;
+    const notice = this.shadowRoot.querySelector('#notice');
+    notice.textContent = this._notice; notice.hidden = !this._notice;
   }
   render() {
     const d = this._data, s = d?.session;
@@ -81,7 +98,7 @@ class DeviceSwapCard extends HTMLElement {
         <h2>Which bulb needs replacing?</h2><p>Choose its existing name. We’ll save its entity IDs and groups before making changes.</p>
         <label for="search">Find a room or bulb</label><input id="search" type="search" placeholder="Kitchen, utility room…" value="${esc(this._query)}">
         <label for="old">Faulty bulb</label><select id="old">${this.options(filtered, this._selectedOld)}</select>
-        <div id="old-details">${this.selectedDetails(old)}</div><div class="actions"><button data-action="flash-old" ${!old || disabled ? 'disabled':''}>Flash selected bulb</button>
+        <div id="old-details">${this.selectedDetails(old)}</div><div class="actions"><button data-action="flash-old" ${!old || disabled ? 'disabled':''}>Identify selected bulb</button>
         <button class="primary" data-action="begin" ${!old || disabled ? 'disabled':''}>Save and continue</button></div>`;
     } else if (stage === 'select') {
       content = `<p class="eyebrow">Replacing ${esc(s.old.friendly_name)}</p><h2>Install and pair the new bulb</h2>
@@ -89,7 +106,7 @@ class DeviceSwapCard extends HTMLElement {
         <button data-action="pair" ${disabled || d.permit_join ? 'disabled':''}>${d.permit_join ? 'Pairing is open' : 'Open pairing for 2 minutes'}</button>
         <p class="muted">Wait for the new bulb to finish interviewing. Select it below; another device joining won’t select it for you.</p>
         <label for="replacement">Replacement bulb</label><select id="replacement">${this.options(devices.filter(item=>item.ieee_address !== s.old.ieee_address),this._selectedNew)}</select>
-        ${this.selectedDetails(replacement)}<div class="actions"><button data-action="flash-new" ${!replacement || disabled ? 'disabled':''}>Flash replacement</button>
+        ${this.selectedDetails(replacement)}<div class="actions"><button data-action="flash-new" ${!replacement || disabled ? 'disabled':''}>Identify replacement</button>
         <button class="primary" data-action="select" ${!replacement || disabled ? 'disabled':''}>Review replacement</button></div>
         <button class="text" data-action="cancel" ${disabled ? 'disabled':''}>Cancel</button>`;
     } else {
@@ -101,7 +118,7 @@ class DeviceSwapCard extends HTMLElement {
         ${stage === 'applying' || this._busy ? '<p role="status">Applying changes. This can take up to a minute. Keep the replacement powered.</p>' : ''}`;
       if (stage === 'verify') {
         content += `<p>The name, entity IDs and groups are restored. Test the replacement and your room’s normal controls or automations.</p>
-          <button data-action="flash-final" ${disabled ? 'disabled':''}>Flash replacement</button>
+          <button data-action="flash-final" ${disabled ? 'disabled':''}>Identify replacement</button>
           <label class="check"><input type="checkbox" id="confirm" ${this._confirm?'checked':''}> The correct bulb and my room controls work.</label>
           <button class="primary" data-action="finish" ${disabled || !this._confirm?'disabled':''}>Finish replacement</button>`;
       } else if (stage !== 'applying') {
@@ -128,7 +145,7 @@ class DeviceSwapCard extends HTMLElement {
       :focus-visible{outline:3px solid var(--primary-color,#0288d1);outline-offset:2px}
       @media(max-width:480px){.body{padding:18px}header{padding:16px}dl{grid-template-columns:1fr;gap:6px}dd{margin-bottom:10px}.actions button{flex:1}}
     </style><ha-card><header><h1>Replace a bulb</h1><span class="badge">${d ? (d.online?'Zigbee2MQTT connected':'Offline') : ''}</span></header>
-    <div class="body"><p id="error" role="alert" class="error" ${this._error?'':'hidden'}>${esc(this._error)}</p>${content}</div></ha-card>`;
+    <div class="body"><p id="error" role="alert" class="error" ${this._error?'':'hidden'}>${esc(this._error)}</p><p id="notice" role="status" ${this._notice?'':'hidden'}>${esc(this._notice)}</p>${content}</div></ha-card>`;
     this.shadowRoot.querySelector('#search')?.addEventListener('input', event => {
       this._query = event.target.value;
       this.updateSearchResults();
@@ -140,7 +157,7 @@ class DeviceSwapCard extends HTMLElement {
       const action=button.dataset.action;
       if(action.startsWith('flash-')){
         const device = action==='flash-old'?this._selectedOld:action==='flash-new'?this._selectedNew:s.replacement.ieee_address;
-        this.action('flash',{device});
+        this.identify(device);
       } else if(action==='begin')this.action(action,{device:this._selectedOld});
       else if(action==='select')this.action(action,{device:this._selectedNew});
       else this.action(action,{confirmed:this._confirm});

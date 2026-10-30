@@ -62,3 +62,30 @@ class MappingTests(unittest.TestCase):
     def test_unexpected_unique_id_is_not_guessed(self):
         with self.assertRaises(ValueError):
             module('mapping').entity_mapping([{'entity_id':'light.old','unique_id':'random','domain':'light'}], [], 'old', 'new')
+
+class IdentificationTests(unittest.TestCase):
+    def test_native_identify_button_is_preferred(self):
+        command=module('mapping').identify_service([
+            {'domain':'light','entity_id':'light.kitchen_1_2','unique_id':'old_light_zigbee2mqtt'},
+            {'domain':'button','entity_id':'button.kitchen_1_identify','unique_id':'old_identify_zigbee2mqtt','disabled_by':None}
+        ],{'light.kitchen_1_2':['blink']})
+        self.assertEqual(command,('button','press',{'entity_id':'button.kitchen_1_identify'}))
+
+    def test_blink_effect_is_used_when_no_identify_button_exists(self):
+        command=module('mapping').identify_service([
+            {'domain':'light','entity_id':'light.kitchen_1_2','unique_id':'old_light_zigbee2mqtt'}
+        ],{'light.kitchen_1_2':['blink']})
+        self.assertEqual(command,('light','turn_on',{'entity_id':'light.kitchen_1_2','effect':'blink'}))
+
+    def test_disabled_identify_is_not_pressed(self):
+        with self.assertRaises(ValueError):
+            module('mapping').identify_service([
+                {'domain':'button','entity_id':'button.kitchen_1_identify','unique_id':'old_identify_zigbee2mqtt','disabled_by':'user'}
+            ],{})
+
+    def test_unrelated_buttons_and_unsupported_lights_are_not_guessed(self):
+        with self.assertRaises(ValueError):
+            module('mapping').identify_service([
+                {'domain':'button','entity_id':'button.restart','unique_id':'old_restart_zigbee2mqtt'},
+                {'domain':'light','entity_id':'light.kitchen_1','unique_id':'old_light_zigbee2mqtt'}
+            ],{'light.kitchen_1':['candle']})

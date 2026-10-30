@@ -14,3 +14,16 @@ def entity_mapping(old_entities, new_entities, old_ieee, new_ieee):
             raise ValueError(f"Missing replacement entity for {entity['entity_id']}")
         result.append((replacement['entity_id'], entity['entity_id']))
     return result
+
+
+def identify_service(entities, light_effects):
+    """Use an exposed native action; generic MQTT flash is not guaranteed."""
+    for entity in entities:
+        if (entity['domain'] == 'button' and '_identify_' in entity['unique_id']
+                and not entity.get('disabled_by')):
+            return 'button', 'press', {'entity_id': entity['entity_id']}
+    for entity in entities:
+        if (entity['domain'] == 'light' and not entity.get('disabled_by')
+                and 'blink' in light_effects.get(entity['entity_id'], [])):
+            return 'light', 'turn_on', {'entity_id': entity['entity_id'], 'effect': 'blink'}
+    raise ValueError('This bulb has no enabled Identify button or supported blink effect')

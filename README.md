@@ -29,13 +29,13 @@ type: custom:z2m-device-swap-card
 entry_id: YOUR_DEVICE_SWAP_CONFIG_ENTRY_ID
 ```
 
-The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.1` as a JavaScript module resource.
+The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.2` as a JavaScript module resource.
 
 For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-url http://YOUR_HA:8123 --dashboard` creates one containing the card. It uses HA's supported Lovelace APIs, leaves existing dashboards untouched, and preserves an existing Device Swap dashboard's edits.
 
 ## Replace one bulb
 
-1. Choose the faulty bulb by its existing name. **Flash selected bulb** helps identify working neighbors; unavailable bulbs may still have an on/off state cached in HA.
+1. Choose the faulty bulb by its existing name. **Identify selected bulb** uses the bulb’s native Identify button (or an explicitly supported blink effect). A request confirmation appears after it is sent. Dead or unpowered bulbs cannot blink; identify working neighbors to locate them. HA may still show a cached on/off state for an unavailable bulb.
 2. Save the snapshot. Switch off the circuit, change the hardware, and restore power.
 3. Open the two-minute pairing window and reset the new bulb if needed. Select the replacement explicitly and wait for its interview and HA discovery to finish.
 4. Review both device addresses, the exact HA entity IDs, and old group memberships. Confirm that the old bulb is disconnected.

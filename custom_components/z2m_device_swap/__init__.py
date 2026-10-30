@@ -14,7 +14,7 @@ async def async_setup(hass, config):
     hass.data.setdefault(DOMAIN, {'entries': {}})
     await hass.http.async_register_static_paths([
         StaticPathConfig('/z2m_device_swap', str(Path(__file__).parent / 'frontend'), False)])
-    frontend.add_extra_js_url(hass, '/z2m_device_swap/z2m-device-swap-card.js?v=0.1.1')
+    frontend.add_extra_js_url(hass, '/z2m_device_swap/z2m-device-swap-card.js?v=0.1.2')
     register(hass)
     return True
 

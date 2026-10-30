@@ -64,7 +64,12 @@ with connect(page['webSocketDebuggerUrl'], max_size=16*1024*1024) as ws:
     assert evaluate("card.shadowRoot.querySelector('#search') === originalSearch"), 'Inventory refresh replaced the focused search input'
     assert evaluate('card.shadowRoot.activeElement === originalSearch'), 'Inventory refresh lost search focus'
     assert evaluate("card.shadowRoot.querySelectorAll('#old option').length") == 2
-    choose('#old','old');click('begin')
+    choose('#old','old')
+    click('flash-old')
+    assert evaluate('serviceCalls') == [{'domain':'button','service':'press','data':{'entity_id':'button.old_identify'}}], 'Identify must use the selected bulb native button'
+    assert evaluate("calls.filter(c=>c.action==='flash').length") == 0, 'Identify must not use generic HA flash'
+    assert 'Identification requested for Kitchen 1' in evaluate('card.shadowRoot.textContent')
+    click('begin')
     assert evaluate("card.shadowRoot.querySelector('#replacement').value") == ''
     choose('#replacement','new');click('select')
     assert evaluate("card.shadowRoot.querySelector('[data-action=apply]').disabled")
