@@ -1,36 +1,68 @@
 /* A dependency-free Home Assistant Lovelace card. */
 const esc = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+async function deviceSwapEntries(hass) {
+  const entries = await hass.callWS({type:'config_entries/get'});
+  return entries.filter(entry => entry.domain === 'z2m_device_swap');
+}
+
 class DeviceSwapCard extends HTMLElement {
+  static getConfigElement() { return document.createElement('z2m-device-swap-card-editor'); }
+  static getStubConfig() { return {}; }
   constructor() {
     super(); this.attachShadow({mode:'open'}); this._config = {}; this._data = null;
     this._busy = false; this._error = ''; this._selectedOld = ''; this._selectedNew = '';
     this._pairingSession = null; this._knownDevices = new Set(); this._detectedNew = ''; this._replacementChosen = false;
+    this._configVersion = 0; this._resolvedEntryId = ''; this._entryOptions = null;
     this._confirm = false; this._query = ''; this._last = ''; this._notice = '';
   }
-  setConfig(config) { this._config = config; this.refresh(); }
+  setConfig(config) {
+    this._config = {...config}; this._configVersion += 1;
+    this._resolvedEntryId = ''; this._entryOptions = null; this._data = null; this._last = ''; this._error = '';
+    this._selectedOld = ''; this._selectedNew = ''; this._pairingSession = null; this._confirm = false;
+    this.render(); this.refresh();
+  }
+  get entryId() { return this._config.entry_id || this._resolvedEntryId; }
   set hass(hass) { this._hass = hass; if (!this._data && !this._loading) this.refresh(); }
   getCardSize() { return 7; }
   connectedCallback() { this._timer = setInterval(() => this.refresh(), 3000); this.render(); this.refresh(); }
   disconnectedCallback() { clearInterval(this._timer); }
   async refresh() {
-    if (!this._hass || !this._config.entry_id || this._loading || this._busy) return;
+    if (!this._hass || this._loading || this._busy) return;
     this._loading = true;
+    const version = this._configVersion;
     try {
-      const data = await this._hass.callWS({type:'z2m_device_swap/status', entry_id:this._config.entry_id});
+      if (!this.entryId) {
+        const entries = await deviceSwapEntries(this._hass);
+        if (version !== this._configVersion) return;
+        this._entryOptions = entries;
+        if (entries.length !== 1) { this.render(); return; }
+        this._resolvedEntryId = entries[0].entry_id;
+      }
+      const data = await this._hass.callWS({type:'z2m_device_swap/status', entry_id:this.entryId});
+      if (version !== this._configVersion) return;
       const serialized = JSON.stringify(data);
       if (serialized !== this._last) { this.acceptData(data); this._last = serialized; this.render(); }
-    } catch (error) { this._error = error.message || String(error); this.render(); }
-    finally { this._loading = false; }
+    } catch (error) {
+      if (version === this._configVersion) {
+        this._error = error.message || String(error); this._data = null;
+        if (!this._config.entry_id) this._resolvedEntryId = '';
+        this.render();
+      }
+    } finally {
+      this._loading = false;
+      if (version !== this._configVersion) this.refresh();
+    }
   }
   async action(action, extra = {}) {
     if (this._busy) return;
+    if (!this.entryId) return;
+    const version = this._configVersion;
     this._busy = true; this._error = ''; this._notice = ''; this.render();
     try {
-      const data = await this._hass.callWS({type:'z2m_device_swap/action', entry_id:this._config.entry_id,
+      const data = await this._hass.callWS({type:'z2m_device_swap/action', entry_id:this.entryId,
         action, session_id:this._data?.session?.id, ...extra});
-      this.acceptData(data);
-      this._confirm = false;
+      if (version === this._configVersion) { this.acceptData(data); this._confirm = false; }
     } catch (error) { this._error = error.message || String(error); }
     finally { this._busy = false; this._last = ''; this.render(); await this.refresh(); }
   }
@@ -105,7 +137,7 @@ class DeviceSwapCard extends HTMLElement {
   render() {
     const d = this._data, s = d?.session;
     const stage = s?.stage || 'idle';
-    if (this.shadowRoot.activeElement?.id === 'search' && this._renderStage === stage && ['idle','complete','cancelled'].includes(stage)) {
+    if (d && this.shadowRoot.activeElement?.id === 'search' && this._renderStage === stage && ['idle','complete','cancelled'].includes(stage)) {
       this.updateSearchResults();
       return;
     }
@@ -120,8 +152,12 @@ class DeviceSwapCard extends HTMLElement {
     const skippedIds = new Set(skipped.map(e => e.entity_id));
     const preserved = (s?.entities || []).filter(e => !skippedIds.has(e.entity_id));
     let content = '';
-    if (!this._config.entry_id) {
-      content = '<p>Configure this card with the Device Swap integration’s <code>entry_id</code>, then add it to a Home Assistant dashboard.</p>';
+    if (!this.entryId) {
+      content = this._entryOptions?.length > 1
+        ? '<p>More than one Device Swap integration is configured. Open the card editor and select the integration by name.</p>'
+        : this._entryOptions?.length === 0
+          ? '<p>Add Zigbee2MQTT Device Swap under Settings → Devices &amp; services → Add integration.</p>'
+          : '<p role="status">Finding the Device Swap integration…</p>';
     } else if (!d) {
       content = '<p role="status">Connecting to Device Swap…</p>';
     } else if (!active) {
@@ -199,9 +235,48 @@ class DeviceSwapCard extends HTMLElement {
   }
 }
 
+class DeviceSwapCardEditor extends HTMLElement {
+  constructor() {
+    super(); this.attachShadow({mode:'open'}); this._config = {}; this._entries = null; this._error = '';
+  }
+  setConfig(config) { this._config = {...config}; this.render(); }
+  set hass(hass) { this._hass = hass; this.loadEntries(); }
+  async loadEntries() {
+    if (this._loading || this._entries !== null) return;
+    this._loading = true;
+    try { this._entries = await deviceSwapEntries(this._hass); this._error = ''; }
+    catch (error) { this._error = error.message || String(error); }
+    finally { this._loading = false; this.render(); }
+  }
+  render() {
+    const selected = this._config.entry_id || '';
+    const entries = this._entries || [];
+    const missing = selected && this._entries !== null && !entries.some(entry => entry.entry_id === selected);
+    this.shadowRoot.innerHTML = `<style>
+      :host{display:block;color:var(--primary-text-color,#202124);font-family:var(--paper-font-body1_-_font-family,Roboto,Arial,sans-serif)}
+      label{display:block;margin:16px 0 8px}select{box-sizing:border-box;width:100%;padding:12px;min-height:46px;font:inherit;color:inherit;background:var(--card-background-color,#fff);border:1px solid var(--divider-color,#ccc);border-radius:6px}
+      p{line-height:1.5;color:var(--secondary-text-color,#666)}[role=alert]{color:var(--error-color,#db4437)}
+    </style><label for="integration">Device Swap integration</label>
+    <select id="integration" ${this._entries === null ? 'disabled' : ''}>
+      <option value="" ${!selected ? 'selected' : ''}>Automatic — use the only configured integration</option>
+      ${missing ? `<option value="${esc(selected)}" selected>Previously selected integration is unavailable</option>` : ''}
+      ${entries.map(entry => `<option value="${esc(entry.entry_id)}" ${entry.entry_id === selected ? 'selected' : ''}>${esc(entry.title)}</option>`).join('')}
+    </select><p>${this._entries === null ? 'Loading integrations…' : !entries.length ? 'Add Zigbee2MQTT Device Swap under Settings → Devices &amp; services → Add integration.' : entries.length === 1 ? 'One integration found. Automatic setup works without an entry ID.' : 'Select an integration by name. Automatic setup needs exactly one integration.'}</p>
+    ${this._error ? `<p role="alert">${esc(this._error)}</p>` : ''}`;
+    this.shadowRoot.querySelector('select').addEventListener('change', event => {
+      const config = {...this._config};
+      if (event.target.value) config.entry_id = event.target.value;
+      else delete config.entry_id;
+      this._config = config;
+      this.dispatchEvent(new CustomEvent('config-changed', {detail:{config}, bubbles:true, composed:true}));
+    });
+  }
+}
+
 class DeviceSwapPanel extends DeviceSwapCard {
   set panel(panel) { this.setConfig({entry_id:panel.config.entry_id}); }
 }
+if(!customElements.get('z2m-device-swap-card-editor'))customElements.define('z2m-device-swap-card-editor',DeviceSwapCardEditor);
 if(!customElements.get('z2m-device-swap-card'))customElements.define('z2m-device-swap-card',DeviceSwapCard);
 if(!customElements.get('z2m-device-swap-panel'))customElements.define('z2m-device-swap-panel',DeviceSwapPanel);
 window.customCards=window.customCards||[];

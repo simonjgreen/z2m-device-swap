@@ -26,7 +26,7 @@ The integration uses your existing MQTT connection. The card uses your Home Assi
 
 1. Open **HACS**. Open the three-dot menu. Select **Custom repositories**.
 2. Enter `https://github.com/simonjgreen/z2m-device-swap`. Select **Integration** as the repository type. Select **Add**.
-3. Find **Zigbee2MQTT Device Swap**. Open its page. Select **Download**. If no tagged release is available, select the default `main` branch.
+3. Find **Zigbee2MQTT Device Swap**. Open its page. Select **Download**. Select the latest release.
 4. Restart Home Assistant.
 5. Open **Settings → Devices & services → Add integration**. Search for **Zigbee2MQTT Device Swap**. Select the integration.
 6. Enter your Zigbee2MQTT MQTT base topic. The default is `zigbee2mqtt`.
@@ -46,16 +46,21 @@ Open **Settings → Devices & services → Add integration**. Add **Zigbee2MQTT 
 
 The integration loads the card JavaScript automatically. A normal Home Assistant dashboard provides the navigation, layout and edit controls.
 
-Open a dashboard. Select **Edit → Add card → Manual**. Enter this configuration:
+Open a dashboard. Select **Edit → Add card**. Search for **Zigbee2MQTT Device Swap**. Add the card.
+
+If you have one Device Swap integration, the card connects automatically. You do not need its entry ID.
+
+If you have several Device Swap integrations, select one by name in the card editor.
+
+For manual YAML configuration, use:
 
 ```yaml
 type: custom:z2m-device-swap-card
-entry_id: YOUR_DEVICE_SWAP_CONFIG_ENTRY_ID
 ```
 
-The entry ID appears in the integration configuration URL. The `config_entries/get` WebSocket response also contains it.
+Existing configurations with an explicit `entry_id` still work. The visual editor can change that selection.
 
-If you manage dashboard resources manually, add `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.5` as a JavaScript module.
+If you manage dashboard resources manually, add `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.6` as a JavaScript module.
 
 The optional setup script can create a separate dashboard:
 
@@ -165,5 +170,14 @@ Add `--install` to install the integration. The script checks each uploaded file
 For an update, use `--update-from COMMIT --install`. The script first checks that every installed file matches that commit. It backs up each changed file before replacement. It then checks the uploaded files.
 
 The scripts request tokens without displaying them. Tokens stay in memory.
+
+### Releases
+
+HACS installs the `z2m_device_swap.zip` asset from a published GitHub release. GitHub records the download count for that asset.
+
+A manifest version change on `main` creates a draft release and builds its ZIP. The archive contains the integration files directly. Publish the draft after the tests and validation pass. Published archives stay unchanged. A correction needs a new version and release.
+
+The [releases page](https://github.com/simonjgreen/z2m-device-swap/releases) lists the available versions. Asset download counts measure downloads, not unique users or active installations.
+
 
 See [the research notes](docs/research.md) for sources and scope.

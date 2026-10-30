@@ -119,4 +119,38 @@ with connect(page['webSocketDebuggerUrl'], max_size=16*1024*1024) as ws:
     settle()
     assert evaluate("card.shadowRoot.querySelector('#replacement').value") == '', 'Simultaneous arrivals need an explicit choice'
     assert 'multiple' in evaluate('card.shadowRoot.textContent').lower()
-print('Card browser checks passed: make/model, new bulb suggestions, manual choice, ambiguity, reviewed IDs, confirmation gates, mobile layout.')
+    # Normal dashboard setup needs no entry ID or YAML lookup.
+    navigate('http://127.0.0.1:8765/tests/card-preview.html')
+    evaluate("calls.length=0;card.setConfig({type:'custom:z2m-device-swap-card'});card.hass=card._hass")
+    settle()
+    assert evaluate("!!card.shadowRoot.querySelector('#old')"), 'A sole integration must connect automatically'
+    assert evaluate("calls.filter(c=>c.type==='z2m_device_swap/status').at(-1).entry_id") == 'preview'
+    evaluate("card.shadowRoot.querySelector('#search').focus();previewEntries.push({entry_id:'second',domain:'z2m_device_swap',title:'Device Swap (second broker)'});calls.length=0;card.setConfig({type:'custom:z2m-device-swap-card'})")
+    settle()
+    assert not evaluate("calls.some(c=>c.type==='z2m_device_swap/status')"), 'Multiple integrations must not be selected arbitrarily'
+    assert 'editor' in evaluate('card.shadowRoot.textContent').lower()
+    assert not evaluate("!!card.shadowRoot.querySelector('#old')"), 'Reconfiguration must clear the previous bulb controls'
+    evaluate("window.editor=card.constructor.getConfigElement();document.body.append(editor);editor.setConfig({type:'custom:z2m-device-swap-card',extra:'keep'});editor.hass=card._hass;window.editorConfigs=[];editor.addEventListener('config-changed',event=>editorConfigs.push(event.detail.config))")
+    settle()
+    assert 'second broker' in evaluate('editor.shadowRoot.textContent')
+    evaluate("(()=>{const select=editor.shadowRoot.querySelector('select');select.value='second';select.dispatchEvent(new Event('change'));})()")
+    assert evaluate('editorConfigs.at(-1)') == {'type':'custom:z2m-device-swap-card','extra':'keep','entry_id':'second'}
+    evaluate('card.setConfig(editorConfigs.at(-1))')
+    settle()
+    assert evaluate("calls.filter(c=>c.type==='z2m_device_swap/status').at(-1).entry_id") == 'second'
+    evaluate("(()=>{const select=editor.shadowRoot.querySelector('select');select.value='';select.dispatchEvent(new Event('change'));})()")
+    assert 'entry_id' not in evaluate('editorConfigs.at(-1)')
+    evaluate("previewEntries=[];calls.length=0;card.setConfig({type:'custom:z2m-device-swap-card'})")
+    settle()
+    assert not evaluate("calls.some(c=>c.type==='z2m_device_swap/status')")
+    assert 'add integration' in evaluate('card.shadowRoot.textContent').lower()
+    # A late response from the previous entry must not refill a reconfigured card.
+    navigate('http://127.0.0.1:8765/tests/card-preview.html')
+    evaluate("window.originalWS=card._hass.callWS.bind(card._hass);card._hass.callWS=msg=>msg.type==='z2m_device_swap/status' && msg.entry_id==='delayed'?new Promise(resolve=>window.resolveDelayed=()=>resolve({...previewData,marker:'stale'})):originalWS(msg);card.setConfig({entry_id:'delayed'})")
+    settle()
+    evaluate("card.setConfig({entry_id:'second'});resolveDelayed()")
+    settle()
+    assert evaluate('card.entryId') == 'second'
+    assert evaluate("card._data.marker || null") is None, 'Late status must not restore the old entry data'
+    assert 'entry_id' not in evaluate('card.constructor.getStubConfig()')
+print('Card browser checks passed: automatic setup, visual entry picker, multiple/missing integrations, make/model, detection, manual choice, confirmation gates, mobile layout.')

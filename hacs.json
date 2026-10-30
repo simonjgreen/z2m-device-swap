@@ -1,5 +1,8 @@
 {
   "name": "Zigbee2MQTT Device Swap",
   "homeassistant": "2026.10.0",
-  "render_readme": true
+  "render_readme": true,
+  "zip_release": true,
+  "filename": "z2m_device_swap.zip",
+  "hide_default_branch": true
 }

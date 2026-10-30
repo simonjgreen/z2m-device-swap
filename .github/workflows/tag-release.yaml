@@ -1,0 +1,60 @@
+name: Draft release from manifest version
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - custom_components/z2m_device_swap/manifest.json
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: device-swap-release
+  cancel-in-progress: false
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version from manifest
+        id: version
+        shell: bash
+        run: |
+          release_version=$(jq -r .version custom_components/z2m_device_swap/manifest.json)
+          [[ "$release_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([a-zA-Z0-9.-]+)?$ ]]
+          echo "version=$release_version" >> "$GITHUB_OUTPUT"
+
+      - name: Build release archive
+        run: |
+          cd custom_components/z2m_device_swap
+          zip -r "$GITHUB_WORKSPACE/z2m_device_swap.zip" . -x '*__pycache__*' '*.pyc' '*.pyo'
+
+      - name: Create or update draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          release_tag="v$RELEASE_VERSION"
+          if release_draft=$(gh release view "$release_tag" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [[ "$release_draft" != true ]]; then
+              echo "Release $release_tag is published. Keeping its artifact and download count."
+              exit 0
+            fi
+            gh release edit "$release_tag" --target "$GITHUB_SHA"
+            gh release upload "$release_tag" z2m_device_swap.zip --clobber
+            exit 0
+          fi
+          release_flags=()
+          case "$release_tag" in
+            *rc*|*beta*|*alpha*) release_flags+=(--prerelease) ;;
+          esac
+          gh release create "$release_tag" z2m_device_swap.zip \
+            --draft "${release_flags[@]}" \
+            --target "$GITHUB_SHA" \
+            --title "$release_tag" \
+            --generate-notes
