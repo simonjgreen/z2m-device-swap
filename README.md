@@ -2,7 +2,7 @@
 
 Replace a failed Zigbee bulb from Home Assistant. The integration saves the old bulb's exact HA entity IDs and Zigbee2MQTT groups, guides pairing, then applies the replacement after you review it.
 
-Status: **early development, not yet validated with a physical replacement**. Installed on HA 2026.10.1 with Z2M 2.14.2; configuration, live inventory and panel registration have been checked. Local tests use a simulated bridge and browser preview. Physical replacement acceptance is still pending.
+Status: **early development, validated with physical Philips Hue GU10 replacements** on Home Assistant 2026.10.4 and Zigbee2MQTT 2.14.2. Individual bulb controls and restored group controls have been confirmed working. Other devices and versions still need testing.
 
 ## Requirements
 
@@ -33,6 +33,27 @@ The entry ID is visible in the integration's config-entry URL or the `config_ent
 
 For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-url http://YOUR_HA:8123 --dashboard` creates one containing the card. It uses HA's supported Lovelace APIs, leaves existing dashboards untouched, and preserves an existing Device Swap dashboard's edits.
 
+## Replacement flow
+
+```mermaid
+flowchart TD
+    A[Choose and identify the faulty bulb] --> B[Save entity IDs and group snapshot]
+    B --> C[Switch off circuit, replace bulb, restore power]
+    C --> D[Open pairing and select the new bulb]
+    D --> E[Wait for interview and HA discovery]
+    E --> F[Review entity IDs and groups; confirm old bulb is disconnected]
+    F --> G[Remove old device and rename replacement]
+    G --> H[Restore groups and exact HA entity IDs]
+    H --> I[Test bulb and normal room controls]
+    I --> J[Confirm and finish]
+    G -. Request fails or is interrupted .-> K[Needs attention: inspect saved state]
+    H -. Request fails or is interrupted .-> K
+    K --> L[Resume: check inventory and skip completed steps]
+    L --> G
+```
+
+Validation blocks removal if required entities or group endpoints do not match. A saved snapshot lets an interrupted replacement resume after checking the current bridge state.
+
 ## Replace one bulb
 
 1. Choose the faulty bulb by its existing name. **Identify selected bulb** uses the bulb’s native Identify button (or an explicitly supported blink effect). A request confirmation appears after it is sent. Dead or unpowered bulbs cannot blink; identify working neighbors to locate them. HA may still show a cached on/off state for an unavailable bulb.
@@ -41,6 +62,25 @@ For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-
 4. Review both device addresses, the exact HA entity IDs, and old group memberships. Confirm that the old bulb is disconnected.
 5. Apply. The integration force-removes the old device, renames the replacement with `homeassistant_rename: true`, restores group membership, and restores any exact entity IDs (including custom names or suffixes).
 6. Test the new bulb and the room's normal controls/automations, then finish the replacement. Start the next bulb only after this check.
+
+## Screenshots
+
+These captures show the actual bundled card with local sample devices, rather than a live household dashboard. The card uses your Home Assistant theme and dashboard layout.
+
+| 1. Choose the faulty bulb | 2. Pair and select its replacement |
+| --- | --- |
+| ![Choose the existing bulb and identify it before saving its snapshot](docs/screenshots/01-choose-bulb.png) | ![Open pairing, select the new bulb, and review the replacement](docs/screenshots/02-pair-replacement.png) |
+
+| 3. Review before applying | 4. Test before finishing |
+| --- | --- |
+| ![Review the device addresses, restored group, exact entity IDs, and any omitted disabled entities](docs/screenshots/03-review-replacement.png) | ![Test the replacement bulb and normal room controls, then confirm the physical check](docs/screenshots/04-test-controls.png) |
+
+<details>
+<summary>5. Replacement complete — ready for the next bulb</summary>
+
+![Completion confirmation with the selector ready for another replacement](docs/screenshots/05-complete.png)
+
+</details>
 
 ## Scope and recovery
 
