@@ -87,6 +87,9 @@ class DeviceSwapCard extends HTMLElement {
     const old = devices.find(item => item.ieee_address === this._selectedOld);
     const replacement = devices.find(item => item.ieee_address === this._selectedNew);
     const groupNames = (s?.groups || []).map(g => esc(g.name));
+    const skipped = s?.skipped_entities || [];
+    const skippedIds = new Set(skipped.map(e => e.entity_id));
+    const preserved = (s?.entities || []).filter(e => !skippedIds.has(e.entity_id));
     let content = '';
     if (!this._config.entry_id) {
       content = '<p>Configure this card with the Device Swap integration’s <code>entry_id</code>, then add it to a Home Assistant dashboard.</p>';
@@ -113,7 +116,8 @@ class DeviceSwapCard extends HTMLElement {
       content = `<p class="eyebrow">${stage === 'verify' ? 'Final check' : stage === 'attention' ? 'Needs attention' : 'Review replacement'}</p>
         <h2>${esc(s.old.friendly_name)}</h2><dl><dt>Remove faulty bulb</dt><dd><code>${esc(s.old.ieee_address)}</code></dd>
         <dt>Use replacement</dt><dd>${esc(s.replacement?.friendly_name)}<br><code>${esc(s.replacement?.ieee_address)}</code></dd>
-        <dt>Restore groups</dt><dd>${groupNames.join(', ') || 'No groups'}</dd><dt>Keep exact HA entity IDs</dt><dd><ul class="entities">${s.entities.map(e=>`<li><code>${esc(e.entity_id)}</code></li>`).join('')}</ul></dd></dl>
+        <dt>Restore groups</dt><dd>${groupNames.join(', ') || 'No groups'}</dd><dt>Keep exact HA entity IDs</dt><dd><ul class="entities">${preserved.map(e=>`<li><code>${esc(e.entity_id)}</code></li>`).join('')}</ul></dd></dl>
+        ${skipped.length ? `<p class="muted">These disabled entities on the old bulb are not exposed by the replacement and will not be carried over:</p><ul>${skipped.map(e=>`<li><code>${esc(e.entity_id)}</code></li>`).join('')}</ul>` : ''}
         ${s.error ? `<p class="error" role="alert">${esc(s.error)}</p>`:''}
         ${stage === 'applying' || this._busy ? '<p role="status">Applying changes. This can take up to a minute. Keep the replacement powered.</p>' : ''}`;
       if (stage === 'verify') {

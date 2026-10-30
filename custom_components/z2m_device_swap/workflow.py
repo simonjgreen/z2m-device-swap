@@ -67,7 +67,7 @@ class Workflow:
                 raise ValueError('Multiple group endpoints require manual replacement')
             session = {'version': 1, 'id': uuid4().hex, 'old': device,
                             'entities': deepcopy(entities), 'groups': memberships,
-                            'replacement': None, 'stage': 'select', 'pending': None,
+                            'replacement': None, 'skipped_entities': [], 'stage': 'select', 'pending': None,
                             'physical_test_confirmed': False, 'error': None}
             await self._persist(**session)
 
@@ -81,8 +81,8 @@ class Workflow:
             check_replacement(self.session['old'], device)
             candidate = self.snapshot()
             candidate['replacement'] = deepcopy(device)
-            self.adapter.validate_entities(candidate)
-            await self._persist(replacement=deepcopy(device), stage='review')
+            skipped = self.adapter.validate_entities(candidate) or []
+            await self._persist(replacement=deepcopy(device), skipped_entities=skipped, stage='review')
 
     async def _operation(self, pending, operation, payload):
         await self._persist(pending=pending)
@@ -108,8 +108,9 @@ class Workflow:
             if self.session['stage'] == 'review':
                 current_memberships = {(g['id'], m['endpoint']) for g in self.adapter.groups for m in g.get('members', []) if m['ieee_address'] == old['ieee_address']}
                 expected_memberships = {(g['id'], g['endpoint']) for g in self.session['groups']}
-                current_entities = {(e['entity_id'], e['unique_id']) for e in self.adapter.entities(old['ieee_address'])}
-                expected_entities = {(e['entity_id'], e['unique_id']) for e in self.session['entities']}
+                omitted_ids = {e['entity_id'] for e in self.session.get('skipped_entities', [])}
+                current_entities = {(e['entity_id'], e['unique_id']) for e in self.adapter.entities(old['ieee_address']) if e['entity_id'] not in omitted_ids}
+                expected_entities = {(e['entity_id'], e['unique_id']) for e in self.session['entities'] if e['entity_id'] not in omitted_ids}
                 if current_memberships != expected_memberships or current_entities != expected_entities:
                     raise ValueError('The old bulb changed since review. Cancel and start a new snapshot.')
             for membership in self.session['groups']:

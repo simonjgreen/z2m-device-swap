@@ -1,7 +1,7 @@
 """Home Assistant entity snapshots and exact ID restoration."""
 import asyncio
 from homeassistant.helpers import entity_registry as er
-from .mapping import entity_mapping
+from .mapping import entity_mapping, replacement_entity_plan
 
 
 class Registry:
@@ -25,7 +25,9 @@ class Registry:
                               session['old']['ieee_address'], session['replacement']['ieee_address'])
 
     def validate_entities(self, session):
-        self.mapping(session)
+        plan = replacement_entity_plan(session['entities'], self.entities(session['replacement']['ieee_address']),
+                                       session['old']['ieee_address'], session['replacement']['ieee_address'])
+        return plan['skipped']
 
     async def restore_entities(self, session):
         registry = er.async_get(self.hass)

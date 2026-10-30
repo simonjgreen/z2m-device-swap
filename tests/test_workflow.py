@@ -267,3 +267,21 @@ class WorkflowTests(unittest.IsolatedAsyncioTestCase):
             await self.flow.begin('old')
         self.assertIsNone(self.flow.snapshot())
         self.assertEqual(self.bridge.calls, [])
+
+    async def test_disabled_omissions_are_saved_without_discarding_original_snapshot(self):
+        omitted=[{'entity_id':'sensor.legacy','reason':'Disabled and unavailable on replacement'}]
+        self.bridge.validate_entities=lambda session:omitted
+        await self.ready()
+        self.assertEqual(self.flow.snapshot()['skipped_entities'],omitted)
+        self.assertEqual(self.bridge.calls,[])
+
+    async def test_omitted_legacy_registry_cleanup_does_not_invalidate_review(self):
+        original=self.bridge.entities
+        legacy={'entity_id':'sensor.legacy','unique_id':'old_legacy_zigbee2mqtt','domain':'sensor','disabled_by':'integration'}
+        old_entities=original('old')+[legacy]
+        self.bridge.entities=lambda ieee:old_entities if ieee=='old' else original(ieee)
+        self.bridge.validate_entities=lambda session:[{'entity_id':'sensor.legacy','reason':'Disabled and unavailable on replacement'}]
+        await self.ready()
+        old_entities.pop()
+        await self.flow.apply(True)
+        self.assertEqual(self.flow.snapshot()['stage'],'verify')

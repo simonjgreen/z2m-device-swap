@@ -89,3 +89,27 @@ class IdentificationTests(unittest.TestCase):
                 {'domain':'button','entity_id':'button.restart','unique_id':'old_restart_zigbee2mqtt'},
                 {'domain':'light','entity_id':'light.kitchen_1','unique_id':'old_light_zigbee2mqtt'}
             ],{'light.kitchen_1':['candle']})
+
+class LegacyEntityTests(unittest.TestCase):
+    def test_disabled_legacy_entities_are_reported_not_required(self):
+        old=[
+            {'entity_id':'light.kitchen_8_2','domain':'light','unique_id':'old_light_zigbee2mqtt','disabled_by':None},
+            {'entity_id':'sensor.kitchen_8_power_on_behavior','domain':'sensor','unique_id':'old_power_on_behavior_zigbee2mqtt','disabled_by':'integration'},
+            {'entity_id':'select.kitchen_8_power_on_behavior','domain':'select','unique_id':'old_power_on_behavior_zigbee2mqtt','disabled_by':None},
+            {'entity_id':'sensor.kitchen_8_update_state','domain':'sensor','unique_id':'old_update_state_zigbee2mqtt','disabled_by':'integration'},
+            {'entity_id':'binary_sensor.kitchen_8_update_available','domain':'binary_sensor','unique_id':'old_update_available_zigbee2mqtt','disabled_by':'integration'},
+            {'entity_id':'update.kitchen_8','domain':'update','unique_id':'old_update_zigbee2mqtt','disabled_by':None}]
+        new=[{'entity_id':'light.new','domain':'light','unique_id':'new_light_zigbee2mqtt'},
+             {'entity_id':'select.new_power_on_behavior','domain':'select','unique_id':'new_power_on_behavior_zigbee2mqtt'},
+             {'entity_id':'update.new','domain':'update','unique_id':'new_update_zigbee2mqtt'}]
+        plan=module('mapping').replacement_entity_plan(old,new,'old','new')
+        self.assertEqual(plan['mappings'],[('light.new','light.kitchen_8_2'),('select.new_power_on_behavior','select.kitchen_8_power_on_behavior'),('update.new','update.kitchen_8')])
+        self.assertEqual([e['entity_id'] for e in plan['skipped']],['sensor.kitchen_8_power_on_behavior','sensor.kitchen_8_update_state','binary_sensor.kitchen_8_update_available'])
+
+    def test_enabled_missing_sensor_still_blocks(self):
+        with self.assertRaisesRegex(ValueError,'Missing'):
+            module('mapping').entity_mapping([{'entity_id':'sensor.used','domain':'sensor','unique_id':'old_power_zigbee2mqtt','disabled_by':None}],[],'old','new')
+
+    def test_disabled_main_light_is_still_required(self):
+        with self.assertRaisesRegex(ValueError,'Missing'):
+            module('mapping').entity_mapping([{'entity_id':'light.kitchen','domain':'light','unique_id':'old_light_zigbee2mqtt','disabled_by':'user'}],[],'old','new')

@@ -29,7 +29,7 @@ type: custom:z2m-device-swap-card
 entry_id: YOUR_DEVICE_SWAP_CONFIG_ENTRY_ID
 ```
 
-The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.2` as a JavaScript module resource.
+The entry ID is visible in the integration's config-entry URL or the `config_entries/get` WebSocket response. The integration loads the JavaScript automatically. If resource loading is managed manually, use `/z2m_device_swap/z2m-device-swap-card.js?v=0.1.3` as a JavaScript module resource.
 
 For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-url http://YOUR_HA:8123 --dashboard` creates one containing the card. It uses HA's supported Lovelace APIs, leaves existing dashboards untouched, and preserves an existing Device Swap dashboard's edits.
 
@@ -44,7 +44,7 @@ For a dedicated native dashboard, the optional helper `scripts/setup_ha.py --ha-
 
 ## Scope and recovery
 
-This automates the established entity-ID-and-group replacement procedure. HA internal device IDs, device-based automation references, direct Zigbee bindings, device-specific configuration, and Zigbee scenes are not migrated. A mismatched replacement entity or group endpoint stops the flow before removal. Entity-ID collisions stop rather than delete unrelated entries.
+This automates the established entity-ID-and-group replacement procedure. HA internal device IDs, device-based automation references, direct Zigbee bindings, device-specific configuration, and Zigbee scenes are not migrated. A missing enabled entity, missing main light entity, or mismatched group endpoint stops the flow before removal. Disabled entities absent from the replacement are listed separately during review and are not carried over; matching disabled entities keep their original IDs and settings. Entity-ID collisions stop rather than delete unrelated entries.
 
 A snapshot and operation intent are saved before mutations in HA-managed storage under `z2m_device_swap.<entry_id>`. The previous 20 finished/cancelled snapshots are retained when you start a new swap. Take your normal HA/Z2M backup before the first production test. A snapshot is a recovery record, not a way to resurrect a physically dead bulb.
 

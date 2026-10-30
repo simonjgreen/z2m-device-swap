@@ -78,7 +78,7 @@ def main():
         panel_path='z2m-device-swap'
         if args.dashboard:
             resources=query('lovelace/resources')
-            resource_url='/z2m_device_swap/z2m-device-swap-card.js?v=0.1.2'
+            resource_url='/z2m_device_swap/z2m-device-swap-card.js?v=0.1.3'
             if not any(r['url'].split('?')[0] == resource_url.split('?')[0] for r in resources):
                 query('lovelace/resources/create',url=resource_url,res_type='module')
             dashboards=query('lovelace/dashboards/list')

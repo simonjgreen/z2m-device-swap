@@ -16,5 +16,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/simonjgreen/z2m-device-swap/issues",
   "requirements": [],
-  "version": "0.1.2"
+  "version": "0.1.3"
 }
