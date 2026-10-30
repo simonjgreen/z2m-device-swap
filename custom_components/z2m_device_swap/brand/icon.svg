@@ -1,7 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
-  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M88 87a48 48 0 1 1 80 36c-9 8-14 17-14 30v9h-52v-9c0-13-5-22-14-30a48 48 0 0 1 0-36z" fill="#ffca58" stroke="#d09016" stroke-width="7"/>
-    <path d="M105 177h46m-43 13h40m-29 14h18" stroke="#6b7885" stroke-width="9"/>
-    <path d="M42 167a98 98 0 0 1 8-100m-1 0-1 30m1-30 27 7M214 89a98 98 0 0 1-8 100m1 0 1-30m-1 30-27-7" stroke="#087fa5" stroke-width="12"/>
+  <title>Device Swap</title>
+  <desc>Two bulbs with opposing arrows. The grey bulb is replaced by the blue bulb.</desc>
+  <g fill="#94a3b8">
+    <path d="M56 102c0-12-18-21-18-40a36 36 0 0 1 72 0c0 19-18 28-18 40v8H56z"/>
+    <rect x="56" y="118" width="36" height="9" rx="3"/>
+    <rect x="62" y="134" width="24" height="8" rx="3"/>
+  </g>
+  <g fill="#03a9f4" transform="translate(108 90)">
+    <path d="M56 102c0-12-18-21-18-40a36 36 0 0 1 72 0c0 19-18 28-18 40v8H56z"/>
+    <rect x="56" y="118" width="36" height="9" rx="3"/>
+    <rect x="62" y="134" width="24" height="8" rx="3"/>
+  </g>
+  <g fill="none" stroke="#03a9f4" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M132 46h60a14 14 0 0 1 14 14v26m-14-12 14 14 14-14"/>
+    <path d="M124 210H64a14 14 0 0 1-14-14v-26m14 12-14-14-14 14"/>
   </g>
 </svg>
