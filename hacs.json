@@ -1,0 +1,5 @@
+{
+  "name": "Zigbee2MQTT Device Swap",
+  "homeassistant": "2026.10.0",
+  "render_readme": true
+}

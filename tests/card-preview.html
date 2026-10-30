@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Device Swap local preview</title>
+<style>body{margin:24px;background:#f2f4f6;--primary-color:#0079b8;--text-primary-color:white;font-family:Arial,sans-serif}z2m-device-swap-card{display:block;max-width:720px;margin:auto}body.dark{background:#111;--card-background-color:#1c1c1c;--primary-text-color:#eee;--secondary-text-color:#aaa;--secondary-background-color:#292929;--divider-color:#444}</style>
+<z2m-device-swap-card></z2m-device-swap-card>
+<script type="module">
+import '../custom_components/z2m_device_swap/frontend/z2m-device-swap-card.js';
+const bulb=(id,name)=>({ieee_address:id,friendly_name:name,model:'Hue GU10',state:'unavailable',interview_completed:true,entities:[{entity_id:id==='old'?'light.kitchen_1_2':'light.replacement',domain:'light',unique_id:id+'_light_zigbee2mqtt'}]});
+const data={online:true,inventory_ready:true,busy:false,permit_join:false,devices:[bulb('old','Kitchen 1'),bulb('new','New Hue GU10')],groups:[],session:null};
+window.calls=[];window.previewData=data;
+const hass={async callWS(msg){window.calls.push(msg);if(msg.type.endsWith('/action')){
+if(msg.action==='begin')data.session={id:'test-session',stage:'select',old:data.devices[0],entities:data.devices[0].entities,groups:[{id:2,name:'Kitchen Lights',endpoint:11}],replacement:null};
+if(msg.action==='select'){data.session.replacement=data.devices[1];data.session.stage='review';}
+if(msg.action==='apply'){if(!msg.confirmed)throw Error('Confirmation required');data.session.stage='verify';}
+if(msg.action==='finish')data.session.stage='complete';
+if(msg.action==='pair')data.permit_join=true;
+if(msg.action==='cancel')data.session.stage='cancelled';
+}return JSON.parse(JSON.stringify(data));}};
+const card=document.querySelector('z2m-device-swap-card');card.setConfig({entry_id:'preview'});card.hass=hass;
+window.card=card;
+if(new URLSearchParams(location.search).get('theme')==='dark')document.body.classList.add('dark');
+</script></html>

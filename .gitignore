@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.superpowers/
+.worktrees/
+.env
+# Instance-specific working notes are kept local.
+docs/implementation-status.md
+docs/research-and-design.md
+docs/superpowers/

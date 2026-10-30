@@ -1,0 +1,21 @@
+{
+  "domain": "z2m_device_swap",
+  "name": "Zigbee2MQTT Device Swap",
+  "codeowners": [
+    "@simonjgreen"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "mqtt",
+    "panel_custom",
+    "websocket_api"
+  ],
+  "documentation": "https://github.com/simonjgreen/z2m-device-swap",
+  "integration_type": "service",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/simonjgreen/z2m-device-swap/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

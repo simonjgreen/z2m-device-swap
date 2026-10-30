@@ -1,0 +1,8 @@
+{
+  "title": "Zigbee2MQTT Device Swap",
+  "config": {
+    "step": {"user": {"title": "Connect Device Swap", "description": "Uses Home Assistant's configured MQTT connection. Enter the base topic from your Zigbee2MQTT configuration.", "data": {"base_topic": "Zigbee2MQTT base topic"}}},
+    "error": {"invalid_topic": "Enter a topic without MQTT wildcards."},
+    "abort": {"already_configured": "This Zigbee2MQTT instance is already configured."}
+  }
+}
